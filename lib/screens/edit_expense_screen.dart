@@ -32,6 +32,7 @@ class _AddExpenseScreenState extends State<EditExpenseScreen> {
           content: Text('Travel expense updated successfully!'),
         ),
       );
+      Navigator.of(context).pop();
     }
   }
 

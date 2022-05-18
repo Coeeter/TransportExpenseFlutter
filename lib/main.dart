@@ -1,9 +1,12 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:transport_expense_tracker/models/expense.dart';
 import 'package:transport_expense_tracker/screens/add_expense_screen.dart';
+import 'package:transport_expense_tracker/screens/auth_screen.dart';
 import 'package:transport_expense_tracker/screens/edit_expense_screen.dart';
 import 'package:transport_expense_tracker/screens/expense_list_screen.dart';
+import 'package:transport_expense_tracker/services/auth_service.dart';
 import 'package:transport_expense_tracker/services/firestore_service.dart';
 import 'package:transport_expense_tracker/widgets/app_drawer.dart';
 
@@ -12,21 +15,35 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
+  AuthService authService = AuthService();
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder(
       future: Firebase.initializeApp(),
-      builder: (ctx, snapshot) => MaterialApp(
-        theme: ThemeData(
-          primarySwatch: Colors.blue,
-        ),
-        home: MainScreen(),
-        routes: {
-          AddExpenseScreen.routeName: (_) => AddExpenseScreen(),
-          ExpenseListScreen.routeName: (_) => ExpenseListScreen(),
-          EditExpenseScreen.routeName: (_) => EditExpenseScreen()
-        },
-      ),
+      builder: (ctx, snapshot) =>
+          snapshot.connectionState == ConnectionState.waiting
+              ? Center(child: CircularProgressIndicator())
+              : StreamBuilder<User?>(
+                  stream: authService.getAuthUser(),
+                  builder: (context, snapshot) {
+                    return MaterialApp(
+                      theme: ThemeData(
+                        primarySwatch: Colors.blue,
+                      ),
+                      home: snapshot.connectionState == ConnectionState.waiting
+                          ? Center(child: CircularProgressIndicator())
+                          : snapshot.hasData
+                              ? MainScreen()
+                              : AuthScreen(),
+                      routes: {
+                        AddExpenseScreen.routeName: (_) => AddExpenseScreen(),
+                        ExpenseListScreen.routeName: (_) => ExpenseListScreen(),
+                        EditExpenseScreen.routeName: (_) => EditExpenseScreen(),
+                        AuthScreen.routeName: (_) => AuthScreen(),
+                      },
+                    );
+                  }),
     );
   }
 }
@@ -42,6 +59,23 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     FirestoreService fsService = FirestoreService();
+    AuthService authService = AuthService();
+
+    logOut() {
+      return authService.logOut().then((value) {
+        FocusScope.of(context).unfocus();
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Logout successfully!'),
+        ));
+      }).catchError((error) {
+        FocusScope.of(context).unfocus();
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(error.message.toString()),
+        ));
+      });
+    }
 
     return StreamBuilder<List<Expense>>(
         stream: fsService.getExpenses(),
@@ -56,6 +90,12 @@ class _MainScreenState extends State<MainScreen> {
             return Scaffold(
               appBar: AppBar(
                 title: Text('Transport Expenses Tracker'),
+                actions: [
+                  IconButton(
+                    onPressed: () => logOut(),
+                    icon: Icon(Icons.logout),
+                  )
+                ],
               ),
               body: Column(children: [
                 Image.asset('images/creditcard.png'),
