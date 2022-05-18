@@ -1,12 +1,11 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 import 'package:transport_expense_tracker/models/expense.dart';
-import 'package:transport_expense_tracker/providers/all_expenses.dart';
 import 'package:transport_expense_tracker/screens/add_expense_screen.dart';
+import 'package:transport_expense_tracker/screens/edit_expense_screen.dart';
 import 'package:transport_expense_tracker/screens/expense_list_screen.dart';
-import 'package:transport_expense_tracker/widgets/AppDrawer.dart';
-import 'package:transport_expense_tracker/widgets/expenses-list.dart';
+import 'package:transport_expense_tracker/services/firestore_service.dart';
+import 'package:transport_expense_tracker/widgets/app_drawer.dart';
 
 void main() {
   runApp(MyApp());
@@ -15,18 +14,17 @@ void main() {
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (ctx) => AllExpenses()),
-      ],
-      child: MaterialApp(
+    return FutureBuilder(
+      future: Firebase.initializeApp(),
+      builder: (ctx, snapshot) => MaterialApp(
         theme: ThemeData(
           primarySwatch: Colors.blue,
         ),
         home: MainScreen(),
         routes: {
           AddExpenseScreen.routeName: (_) => AddExpenseScreen(),
-          ExpenseListScreen.routeName: (_) => ExpenseListScreen()
+          ExpenseListScreen.routeName: (_) => ExpenseListScreen(),
+          EditExpenseScreen.routeName: (_) => EditExpenseScreen()
         },
       ),
     );
@@ -41,23 +39,34 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-
   @override
   Widget build(BuildContext context) {
-    AllExpenses expenseList = Provider.of<AllExpenses>(context);
+    FirestoreService fsService = FirestoreService();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Transport Expenses Tracker'),
-      ),
-      body: Column(children: [
-        Image.asset('images/creditcard.png'),
-        Text(
-          'Total spent: \$${expenseList.getTotalSpend().toStringAsFixed(2)}',
-          style: Theme.of(context).textTheme.titleLarge,
-        )
-      ]),
-      drawer: AppDrawer(),
-    );
+    return StreamBuilder<List<Expense>>(
+        stream: fsService.getExpenses(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Center(
+              child: CircularProgressIndicator(),
+            );
+          } else {
+            double sum = 0;
+            snapshot.data!.forEach((doc) => sum += doc.cost);
+            return Scaffold(
+              appBar: AppBar(
+                title: Text('Transport Expenses Tracker'),
+              ),
+              body: Column(children: [
+                Image.asset('images/creditcard.png'),
+                Text(
+                  'Total spent: \$${sum.toStringAsFixed(2)}',
+                  style: Theme.of(context).textTheme.titleLarge,
+                )
+              ]),
+              drawer: AppDrawer(),
+            );
+          }
+        });
   }
 }

@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:transport_expense_tracker/models/expense.dart';
 import 'package:transport_expense_tracker/services/firestore_service.dart';
 
-class AddExpenseScreen extends StatefulWidget {
-  static String routeName = '/add-expense';
+class EditExpenseScreen extends StatefulWidget {
+  static String routeName = '/edit-expense';
 
   @override
-  State<AddExpenseScreen> createState() => _AddExpenseScreenState();
+  State<EditExpenseScreen> createState() => _AddExpenseScreenState();
 }
 
-class _AddExpenseScreenState extends State<AddExpenseScreen> {
+class _AddExpenseScreenState extends State<EditExpenseScreen> {
   var form = GlobalKey<FormState>();
 
   String? purpose;
@@ -17,18 +18,18 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   double? cost;
   DateTime? travelDate;
 
-  void saveForm(BuildContext context) {
+  void saveForm(BuildContext context, String id) {
     if (form.currentState!.validate()) {
       form.currentState!.save();
       if (travelDate == null) travelDate = DateTime.now();
       FirestoreService fsService = FirestoreService();
-      fsService.addExpense(purpose, mode, cost, travelDate);
+      fsService.editExpense(id, purpose, mode, cost, travelDate);
       FocusScope.of(context).unfocus();
       form.currentState!.reset();
       travelDate = null;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Travel expense added successfully!'),
+          content: Text('Travel expense updated successfully!'),
         ),
       );
     }
@@ -51,11 +52,15 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Expense selectedExpense =
+        ModalRoute.of(context)?.settings.arguments as Expense;
     return Scaffold(
       appBar: AppBar(
-        title: Text('Add Expense'),
+        title: Text('Edit Expense'),
         actions: [
-          IconButton(onPressed: () => saveForm(context), icon: Icon(Icons.save))
+          IconButton(
+              onPressed: () => saveForm(context, selectedExpense.id),
+              icon: Icon(Icons.save))
         ],
       ),
       body: Container(
@@ -65,6 +70,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           child: Column(
             children: [
               DropdownButtonFormField(
+                value: selectedExpense.mode,
                 decoration:
                     const InputDecoration(label: Text('Mode of Transport')),
                 items: const [
@@ -80,9 +86,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   return null;
                 },
                 onChanged: (value) => mode = value as String,
+                onSaved: (value) => mode = value as String,
               ),
               TextFormField(
                 decoration: const InputDecoration(label: Text('Cost')),
+                initialValue: selectedExpense.cost.toStringAsFixed(2),
                 keyboardType: TextInputType.number,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
@@ -97,6 +105,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               ),
               TextFormField(
                 decoration: const InputDecoration(label: Text('Purpose')),
+                initialValue: selectedExpense.purpose,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return "Please provide a purpose";
